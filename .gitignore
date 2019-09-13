@@ -10,3 +10,5 @@ _site
 .Rhistory
 .RData
 /Gemfile.lock
+vendor/
+.bundle/

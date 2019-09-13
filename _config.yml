@@ -10,7 +10,7 @@
 carpentry: "dc"
 
 # Overall title for pages.
-title: "Data Wrangling and Processing for Genomics"
+title: "Genomics Data Wrangling and Processing on Computa Canada Infratructure"
 
 
 #------------------------------------------------------------
@@ -26,7 +26,7 @@ kind: "lesson"
 repository: <USERNAME>/<PROJECT>
 
 # Email address, no mailto:
-email: "team@carpentries.org"
+email: "pierre-olivier.quirion@calculquebec.ca"
 
 # Sites.
 amy_site: "https://amy.software-carpentry.org/workshops"
@@ -85,7 +85,7 @@ exclude:
   - Makefile
   - bin/
   - .Rproj.user/
-
+  - vendor/
 # Turn on built-in syntax highlighting.
 highlighter: rouge
 
