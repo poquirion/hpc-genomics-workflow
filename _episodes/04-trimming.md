@@ -28,20 +28,23 @@ filter poor quality reads and trim poor quality bases from our samples.
 
 ## Trimmomatic Options
 
-Trimmomatic has a variety of options to trim your reads. If we run the command, we can see some of our options.
+Trimmomatic has a variety of options to trim your reads. Note that this is a java code. It can be tricky to run, but the module command give us gidence.
+Running the command will give us even more information.
 
 ~~~
-$ trimmomatic
+$ module load trimmomatic
+To execute Trimmomatic run: java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.36.jar
+$ java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.36.jar
 ~~~
 {: .bash}
 
-Which will give you the following output:
+Gives you the following output:
 ~~~
-Usage: 
+Usage:
        PE [-version] [-threads <threads>] [-phred33|-phred64] [-trimlog <trimLogFile>] [-summary <statsSummaryFile>] [-quiet] [-validatePairs] [-basein <inputBase> | <inputFile1> <inputFile2>] [-baseout <outputBase> | <outputFile1P> <outputFile1U> <outputFile2P> <outputFile2U>] <trimmer1>...
-   or: 
+   or:
        SE [-version] [-threads <threads>] [-phred33|-phred64] [-trimlog <trimLogFile>] [-summary <statsSummaryFile>] [-quiet] <inputFile> <outputFile> <trimmer1>...
-   or: 
+   or:
        -version
 ~~~
 {: .output}
@@ -49,7 +52,7 @@ Usage:
 This output shows us that we must first specify whether we have paired end (`PE`) or single end (`SE`) reads.
 Next, we specify what flag we would like to run. For example, you can specify `threads` to indicate the number of
 processors on your computer that you want Trimmomatic to use. These flags are not necessary, but they can give
-you more control over the command. The flags are followed by positional arguments, meaning the order in which you 
+you more control over the command. The flags are followed by positional arguments, meaning the order in which you
 specify them is important. In paired end mode, Trimmomatic expects the two input files, and then the names of the
 output files. These files are described below.
 
@@ -84,7 +87,9 @@ and options, see [the Trimmomatic manual](http://www.usadellab.org/cms/uploads/s
 However, a complete command for Trimmomatic will look something like the command below. This command is an example and will not work, as we do not have the files it refers to:
 
 ~~~
-$ trimmomatic PE -threads 4 SRR_1056_1.fastq SRR_1056_2.fastq  \
+#!/bin/bash
+java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.36.jar \
+              PE -threads 4 SRR_1056_1.fastq SRR_1056_2.fastq  \
               SRR_1056_1.trimmed.fastq SRR_1056_1un.trimmed.fastq \
               SRR_1056_2.trimmed.fastq SRR_1056_2un.trimmed.fastq \
               ILLUMINACLIP:SRR_adapters.fa SLIDINGWINDOW:4:20
@@ -96,7 +101,7 @@ In this example, we've told Trimmomatic:
 | code   | meaning |
 | ------- | ---------- |
 | `PE` | that it will be taking a paired end file as input |
-| `-threads 4` | to use four computing threads to run (this will spead up our run) |
+| `-threads 4` | to use four computing threads to run (this could speed up our run, if we know what we are doing!) |
 | `SRR_1056_1.fastq` | the first input file name |
 | `SRR_1056_2.fastq` | the second input file name |
 | `SRR_1056_1.trimmed.fastq` | the output file for surviving pairs from the `_1` file |
@@ -115,27 +120,61 @@ $ cd ~/dc_workshop/data/untrimmed_fastq
 ~~~
 {: .bash}
 
-We are going to run Trimmomatic on one of our paired-end samples. 
-While using FastQC we saw that Nextera adapters were present in our samples. 
+We are going to run Trimmomatic on one of our paired-end samples.
+While using FastQC we saw that Nextera adapters were present in our samples.
 The adapter sequences came with the installation of trimmomatic, so we will first copy these sequences into our current directory.
 
 ~~~
-$ cp ~/.miniconda3/pkgs/trimmomatic-0.38-0/share/trimmomatic-0.38-0/adapters/NexteraPE-PE.fa .
+$ ls $EBROOTTRIMMOMATIC/adapters/
+NexteraPE-PE.fa  TruSeq2-PE.fa  TruSeq2-SE.fa  TruSeq3-PE-2.fa  TruSeq3-PE.fa  TruSeq3-SE.fa
 ~~~
 {: .bash}
 
 We will also use a sliding window of size 4 that will remove bases if their
 phred score is below 20 (like in our example above). We will also
 discard any reads that do not have at least 25 bases remaining after
-this trimming step. This command will take a few minutes to run.
+this trimming step.
 
 ~~~
-$ trimmomatic PE SRR2589044_1.fastq.gz SRR2589044_2.fastq.gz \
-                SRR2589044_1.trim.fastq.gz SRR2589044_1un.trim.fastq.gz \
-                SRR2589044_2.trim.fastq.gz SRR2589044_2un.trim.fastq.gz \
-                SLIDINGWINDOW:4:20 MINLEN:25 ILLUMINACLIP:NexteraPE-PE.fa:2:40:15 
+#!/bin/bash
+
+INPUT_PAIR1=untrimmed_fastq/SRR2589044_1.fastq.gz
+INPUT_PAIR2=untrimmed_fastq/SRR2589044_2.fastq.gz
+OUTPUT_DIR=trimm_out
+
+mkdir -p trimm_out
+
+sample=${OUTPUT_DIR}/$(basename $INPUT_PAIR1)
+TRIM1=${sample%%.fastq.gz}.trim.fastq.gz
+UNTRIM1=${sample%%.fastq.gz}un.trim.fastq.gz
+
+sample=${OUTPUT_DIR}/$(basename $INPUT_PAIR2)
+TRIM2=${sample%%.fastq.gz}.trim.fastq.gz
+UNTRIM2=${sample%%.fastq.gz}un.trim.fastq.gz
+
+
+java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.36.jar \
+      PE $INPUT_PAIR1 $INPUT_PAIR2 \
+      $TRIM1 $UNTRIM1 \
+      $TRIM2 $UNTRIM2 \
+      SLIDINGWINDOW:4:20 MINLEN:25 \
+      ILLUMINACLIP:$EBROOTTRIMMOMATIC/adapters/NexteraPE-PE.fa:2:40:15
+
+
 ~~~
 {: .bash}
+
+
+## Exercise
+
+Before submitting the script with `sbatch`, look at `sbatch` documentation and try to find a way to accelerate the processing.
+Think about the commend that was made about threads.  
+
+Hint: Look for the `cpu` keyword in the documentation
+
+## Solution
+the -
+
 
 
 
@@ -209,12 +248,12 @@ We've just successfully run Trimmomatic on one of our FASTQ files!
 However, there is some bad news. Trimmomatic can only operate on
 one sample at a time and we have more than one sample. The good news
 is that we can use a `for` loop to iterate through our sample files
-quickly! 
+quickly!
 
 We unzipped one of our files before to work with it, let's compress it again before we run our for loop.
 
 ~~~
-gzip SRR2584863_1.fastq 
+gzip SRR2584863_1.fastq
 ~~~
 {: .bash}
 
@@ -225,7 +264,7 @@ $ for infile in *_1.fastq.gz
 >   trimmomatic PE ${infile} ${base}_2.fastq.gz \
 >                ${base}_1.trim.fastq.gz ${base}_1un.trim.fastq.gz \
 >                ${base}_2.trim.fastq.gz ${base}_2un.trim.fastq.gz \
->                SLIDINGWINDOW:4:20 MINLEN:25 ILLUMINACLIP:NexteraPE-PE.fa:2:40:15 
+>                SLIDINGWINDOW:4:20 MINLEN:25 ILLUMINACLIP:NexteraPE-PE.fa:2:40:15
 > done
 ~~~
 {: .bash}
@@ -252,7 +291,7 @@ SRR2584863_2un.trim.fastq.gz  SRR2589044_1.fastq.gz
 {: .output}
 
 > ## Exercise
-> We trimmed our fastq files with Nextera adapters, 
+> We trimmed our fastq files with Nextera adapters,
 > but there are other adapters that are commonly used.
 > What other adapter files came with Trimmomatic?
 >
@@ -322,8 +361,8 @@ SRR2584863_2un.trim.fastq.gz  SRR2584866_2un.trim.fastq.gz  SRR2589044_2un.trim.
 >> Remember to replace everything between the `@` and `:` in your scp
 >> command with your AWS instance number.
 >>
->> After trimming and filtering, our overall quality is much higher, 
->> we have a distribution of sequence lengths, and more samples pass 
+>> After trimming and filtering, our overall quality is much higher,
+>> we have a distribution of sequence lengths, and more samples pass
 >> adapter content. However, quality trimming is not perfect, and some
 >> programs are better at removing some sequences than others. Because our
 >> sequences still contain 3' adapters, it could be important to explore
