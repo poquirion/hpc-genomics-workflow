@@ -15,6 +15,10 @@ keypoints:
 - "The scheduler send your script to a remote compute node where it is executed."
 ---
 
+{% capture rapid %}def-poq-tr{% endcapture %}
+{% capture reservation %}poq-reservation{% endcapture %}
+
+
 # Connect to Béluga
 
 Béluga is the main Compute Québec Super Computer and is one of the Computer Canada Federation HPC sytem along with Cedar, Graham and Niagara. You can find more information about these systems and documentation about how to use them on the [Compute Canada Wiki page](https://docs.computecanada.ca/wiki/Compute_Canada_Documentation)
@@ -214,6 +218,7 @@ $ module load fastqc/0.11.8
 
 # The SLURM Scheduler
 
+### squeue
 
 You are note supposed to run code on the login nodes. There are hundreds of compute node that are there to do that. The access to these node is taken cared of by a scheduler. All Compute Canada systems are using the [SLURM scheduler](https://www.schedmd.com).
 
@@ -229,14 +234,15 @@ $ squeue | less
 
 To exit less, just type `q`
 
+### sbatch
 
 
 To send you own job in the queue, you will use the `sbatch` command.
 
-While `sbatch` can take many options, we can submit a script to the scheduler by simply putting the command in front of it.
+While `sbatch` can take many options we only Compute Canada sytems onle need one to succesfully submit a script to the scheduler, the --account option. For this workshop, we will all use an accout epecually created for us `{{ rapid }}`, and use the command like this:
 
 ~~~
-sbatch myscript.sh
+sbatch --account {{ rapid }} myscript.sh
 ~~~
 {: .bash}
 
