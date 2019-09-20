@@ -12,6 +12,8 @@ keypoints:
 - "The options you set for the command-line tools you use are important"
 - "You need to check that the scheduler are in phase with them."
 ---
+{% capture rapid %}def-poq-tr{% endcapture %}
+
 
 # Cleaning Reads
 
@@ -206,7 +208,7 @@ java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.36.jar \
 >>Submit with the '--cpu-per-task' option:
 >>
 >>~~~
->>$ sbatch --cpu-per-task 4 trimm.sh
+>>$ sbatch -A {{ rapid }} --cpu-per-task 4 trimm.sh
 >>~~~
 >>{: .bash}
 >>In the slurm.<JOBID>.out you will find the following
@@ -236,7 +238,7 @@ There is a second method to feed options to an `sbatch` script. The options can 
 ~~~
 #!/bin/bash
 #SBATCH --cpu-per-task 4
-
+#SBATCH -A {{ rapid }}
 INPUT_PAIR1=untrimmed_fastq/SRR2589044_1.fastq.gz
 INPUT_PAIR2=untrimmed_fastq/SRR2589044_2.fastq.gz
 OUTPUT_DIR=trimm_out
@@ -312,6 +314,7 @@ Note that once the job are ran on a compute node all the job submit info is avai
 >>#!/bin/bash
 >>#SBATCH --cpu-per-task 4
 >>#SBATCH --mem-per-cpu  4775
+>>#SBATCH -A {{ rapid }}
 >>
 >>INPUT_PAIR1=untrimmed_fastq/SRR2589044_1.fastq.gz
 >>INPUT_PAIR2=untrimmed_fastq/SRR2589044_2.fastq.gz

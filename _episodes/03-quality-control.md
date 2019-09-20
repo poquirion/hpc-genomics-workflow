@@ -14,6 +14,7 @@ keypoints:
 ---
 {% capture cc-system %}Béluga{% endcapture %}
 {% capture cc-system-lc %}beluga{% endcapture %}
+{% capture rapid %}def-poq-tr{% endcapture %}
 
 
 # Bioinformatic workflows
@@ -581,7 +582,7 @@ echo $input_sample done
 >>
 >> 1 To submit our script, run
 >> ~~~
->> sbatch script.sh untrimmed_fastq/SRR2584866_1.fastq.gz fastqc_out
+>> sbatch -A {{ rapid }} script.sh untrimmed_fastq/SRR2584866_1.fastq.gz fastqc_out
 >> ~~~
 >>{: .bash}
 >> 2 Once `ST` (status) is in `R` (running) mode, a `slurm-<JOBID>.out` file will appear in your working directory. You can run `tail -f` on that file to follow the job progress.
@@ -633,7 +634,7 @@ Now that we have a script to process one input file at the time, lets write one 
 >>
 >>   echo sending  $file to scheduler
 >>
->>   sbatch sample_workflow.sh $file $ouptut_directory
+>>   sbatch -A {{ rapid }} sample_workflow.sh $file $ouptut_directory
 >>done
 >>~~~
 >>{: .bash}
