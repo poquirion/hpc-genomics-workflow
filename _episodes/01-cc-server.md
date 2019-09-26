@@ -29,7 +29,7 @@ Here is the [Béluga entry on the wiki](https://docs.computecanada.ca/wiki/Bélu
 If you do not already have a Compute Canada account, you can use the username and password provided to you at the beginning of this lesson.  
 
 ~~~
-ssh -l <USER_NAME> beluga.calculcanada.ca
+$ ssh -l <USER_NAME> beluga.calculcanada.ca
 ~~~
 {: .bash}
 
@@ -263,7 +263,7 @@ The are available from all the compute node at the same time, note that it can b
 
 Lets type the `df` (**d**isk **f**ree) command and see all the mounted file systems.
 
-There are many _tmpfs_, one per user, `/tmp` is also a _tmpfs_ while `/localscratch` is a standard, superfast NVMe SSD disk. 
+There are many _tmpfs_, one per user, `/tmp` is also a _tmpfs_ while `/localscratch` is a standard, superfast NVMe SSD disk.
 
 
 # Run you first script on a Super computer
@@ -295,7 +295,7 @@ chmod 755
 >   - What job ID where you given?  
 >  
 > 3 Look at the status of you job using `squeue -u $USER`.  
->   - What is the meaning of the information contained in the `squeue` output?      
+>   - What is the meaning of the information contained in the `squeue` output?
 >
 > 4 Where is the output of your job stored?  
 >   - Hint look for a new file in the current directory
