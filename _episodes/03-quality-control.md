@@ -14,7 +14,7 @@ keypoints:
 ---
 {% capture cc-system %}Béluga{% endcapture %}
 {% capture cc-system-lc %}beluga{% endcapture %}
-{% capture rapid %}def-poq-tr{% endcapture %}
+{% capture rapid %}def-training-wa{% endcapture %}
 
 
 # Bioinformatic workflows

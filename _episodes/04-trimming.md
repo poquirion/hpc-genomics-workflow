@@ -1,5 +1,5 @@
 ---
-title: "Trimming and Filtering"
+title: "Trimming"
 teaching: 30
 exercises: 15
 questions:
@@ -7,12 +7,11 @@ questions:
 objectives:
 - "Clean FASTQ reads using Trimmomatic."
 - "Select and set multiple options for command-line bioinformatic tools."
-- "Write `for` loops with two variables."
 keypoints:
 - "The options you set for the command-line tools you use are important"
 - "You need to check that the scheduler are in phase with them."
 ---
-{% capture rapid %}def-poq-tr{% endcapture %}
+{% capture rapid %}def-training-wa{% endcapture %}
 
 
 # Cleaning Reads
@@ -30,7 +29,7 @@ filter poor quality reads and trim poor quality bases from our samples.
 
 ## Trimmomatic Options
 
-Trimmomatic has a variety of options to trim your reads. Note that this is a java code. It can be tricky to run, but the module command give us gidence.
+Trimmomatic has a variety of options to trim your reads. Note that this is a java code. It can be tricky to run, but the module command give us guidance.
 Running the command will give us even more information.
 
 ~~~
@@ -140,19 +139,27 @@ this trimming step the here is the `trimm.sh` script.
 ~~~
 #!/bin/bash
 
-INPUT_PAIR1=untrimmed_fastq/SRR2589044_1.fastq.gz
-INPUT_PAIR2=untrimmed_fastq/SRR2589044_2.fastq.gz
+if [ $# -ne 2 ]; then
+   echo "$0 <input dir>  <input fastqs BASENAME>"
+   exit  1
+fi
+
+INPUT_DIR=$1
+BASENAME=$2
+
+INPUT_PAIR1=$INPUT_DIR/${BASENAME}_1.fastq.gz
+INPUT_PAIR2=$INPUT_DIR/${BASENAME}_2.fastq.gz
+
 OUTPUT_DIR=trimm_out
 
-mkdir -p trimm_out
+mkdir -p $OUTPUT_DIR
 
-sample=${OUTPUT_DIR}/$(basename $INPUT_PAIR1)
-TRIM1=${sample%%.fastq.gz}.trim.fastq.gz
-UNTRIM1=${sample%%.fastq.gz}un.trim.fastq.gz
 
-sample=${OUTPUT_DIR}/$(basename $INPUT_PAIR2)
-TRIM2=${sample%%.fastq.gz}.trim.fastq.gz
-UNTRIM2=${sample%%.fastq.gz}un.trim.fastq.gz
+TRIM1=${TRIM_OUT}/${BASENAME}_1.trim.fastq.gz
+UNTRIM1=${TRIM_OUT}/${BASENAME}_1un.trim.fastq.gz
+
+TRIM2=${TRIM_OUT}/${BASENAME}_2.trim.fastq.gz
+UNTRIM2=${TRIM_OUT}/${BASENAME}_2un.trim.fastq.gz
 
 
 java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.36.jar \
@@ -179,20 +186,30 @@ java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.36.jar \
 >>~~~
 >>#!/bin/bash
 >>
+>>if [ $# -ne 2 ]; then
+>>   echo "$0 <input dir>  <input fastqs BASENAME>"
+>>   exit  1
+>>fi
 >>
->>INPUT_PAIR1=untrimmed_fastq/SRR2589044_1.fastq.gz
->>INPUT_PAIR2=untrimmed_fastq/SRR2589044_2.fastq.gz
+>>INPUT_DIR=$1
+>>BASENAME=$2
+>>
+>>INPUT_PAIR1=$INPUT_DIR/${BASENAME}_1.fastq.gz
+>>INPUT_PAIR2=$INPUT_DIR/${BASENAME}_2.fastq.gz
+>>
 >>OUTPUT_DIR=trimm_out
 >>
->>mkdir -p trimm_out
+>>mkdir -p $OUTPUT_DIR
 >>
->>sample=${OUTPUT_DIR}/$(basename $INPUT_PAIR1)
->>TRIM1=${sample%%.fastq.gz}.trim.fastq.gz
->>UNTRIM1=${sample%%.fastq.gz}un.trim.fastq.gz
 >>
->>sample=${OUTPUT_DIR}/$(basename $INPUT_PAIR2)
->>TRIM2=${sample%%.fastq.gz}.trim.fastq.gz
->>UNTRIM2=${sample%%.fastq.gz}un.trim.fastq.gz
+>>TRIM1=${TRIM_OUT}/${BASENAME}_1.trim.fastq.gz
+>>UNTRIM1=${TRIM_OUT}/${BASENAME}_1un.trim.fastq.gz
+>>
+>>TRIM2=${TRIM_OUT}/${BASENAME}_2.trim.fastq.gz
+>>UNTRIM2=${TRIM_OUT}/${BASENAME}_2un.trim.fastq.gz
+>>
+>>
+>>
 >>
 >>
 >>java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.36.jar
@@ -208,7 +225,7 @@ java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.36.jar \
 >>Submit with the '--cpu-per-task' option:
 >>
 >>~~~
->>$ sbatch -A {{ rapid }} --cpu-per-task 4 trimm.sh
+>>$ sbatch -A {{ rapid }} --cpu-per-task 4 trimm.sh untrimmed_fastq SRR2589044
 >>~~~
 >>{: .bash}
 >>In the slurm.<JOBID>.out you will find the following
@@ -231,27 +248,46 @@ java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.36.jar \
 > {: .solution}
 {: .challenge}
 
+
+> ## Cores and threads
+> _Core_ and _CPU_ are often use to mean the same thing, because for a long time _CPU_ only had one core and _they where_ the same thing. With slurm the term _CPU_ always refer to the _cores_ themselves, there is 40 of them for every machine on Béluga.  
+> On the other end, _threads_ are process that a software use to execute its code. For most application you will want to set the number of _threads_ in your code to the same amount of _cores_ that you requested. Having less _threads_ than available _cores_ is always useless.  
+> It is always a good idea to benchmark your code to see how many _thread_ and _cores_ you should use for a specific computation. These numbers will vary depending on the hardware you are running on.  
+{: .callout}
+
+
+
 ### Slurm Digression
 
-There is a second method to feed options to an `sbatch` script. The options can be embedded directly inside the script. Here is how we would write the   `trimm.sh` to follow that method:
+There is a second method to feed options to an `sbatch` script. The options can be embedded directly inside the script. Here is how we would write the  `trimm.sh` to follow that method:
 
 ~~~
 #!/bin/bash
 #SBATCH --cpu-per-task 4
 #SBATCH -A {{ rapid }}
-INPUT_PAIR1=untrimmed_fastq/SRR2589044_1.fastq.gz
-INPUT_PAIR2=untrimmed_fastq/SRR2589044_2.fastq.gz
+
+if [ $# -ne 2 ]; then
+   echo "$0 <input dir>  <input fastqs BASENAME>"
+   exit  1
+fi
+
+INPUT_DIR=$1
+BASENAME=$2
+
+INPUT_PAIR1=$INPUT_DIR/${BASENAME}_1.fastq.gz
+INPUT_PAIR2=$INPUT_DIR/${BASENAME}_2.fastq.gz
+
 OUTPUT_DIR=trimm_out
 
-mkdir -p trimm_out
+mkdir -p $OUTPUT_DIR
 
-sample=${OUTPUT_DIR}/$(basename $INPUT_PAIR1)
-TRIM1=${sample%%.fastq.gz}.trim.fastq.gz
-UNTRIM1=${sample%%.fastq.gz}un.trim.fastq.gz
 
-sample=${OUTPUT_DIR}/$(basename $INPUT_PAIR2)
-TRIM2=${sample%%.fastq.gz}.trim.fastq.gz
-UNTRIM2=${sample%%.fastq.gz}un.trim.fastq.gz
+TRIM1=${TRIM_OUT}/${BASENAME}_1.trim.fastq.gz
+UNTRIM1=${TRIM_OUT}/${BASENAME}_1un.trim.fastq.gz
+
+TRIM2=${TRIM_OUT}/${BASENAME}_2.trim.fastq.gz
+UNTRIM2=${TRIM_OUT}/${BASENAME}_2un.trim.fastq.gz
+
 
 
 java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.36.jar
@@ -266,34 +302,34 @@ java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.36.jar
 {: .bash}
 Submit with the '--cpu-per-task' option:
 
-Then no need to explicitely add the option in the sbatch call.
+Then no need to explicitly add the `sbatch` options.
 ~~~
-$ sbatch  trimm.sh
+$ sbatch  trimm.sh untrimmed_fastq SRR2589044
 ~~~
 
 
+### The right ressources
+
+One cpu (here a core) is the default that will be given to a script sent by `sbatch`. There are other default values. Along with the number of cpu/cores, the other important value is the RAM reserved for a job.  
 
 
-One cpu (here a core) is the default that will be given to a script sent by sbatch. There are other default values. Along with the number of cpu/cores, the other important value is the RAM reserved for a job.  
-
-
-We has a hint of these default values when we where looking the the outputs of `squeue -u $USER`.
+We have a hint of these default values when we where looking the the outputs of `squeue -u $USER`.
 
 
 ~~~
           JOBID     USER      ACCOUNT           NAME  ST  TIME_LEFT NODES CPUS       GRES MIN_MEM NODELIST (REASON)
-        2931031      poq def-poq-ab_c        trim.sh  PD    1:00:00     1    1     (null)    256M  (Priority)
+        2931031      poq def-training-wa        trim.sh  PD    1:00:00     1    1     (null)    256M  (Priority)
 ~~~
 {: .output}
 
 
-They give a 1h walltime, the job will be killed after 1 h (--time 1:00:00), you get one Node, for most (95%) genomics jobs you will only be able to run on one node at a time (-N 1), we already mentioned that you get one cpu (and one task for that matter, so --cpu-per-task 1) and the memory is pretty small!
+They give a 1h walltime, the job will be killed after 1 h (--time 1:00:00), you get one Node, for most genomics jobs (~95%) you will only be able to run on one node at a time (-N 1), we have already mentioned that you get one cpu (and one task for that matter, so --cpu-per-task 1) and the memory is pretty small!
 (--mem-per-cpu 256M).
 
 
 
 >## Exercise
-> Béluga has three type of node, 95000MB, 191000MB and 771000MB. What would be your --mem-per-cpu entry to get a proportional share of these nodes. Give your solution in MB or in GB.
+> Béluga has three type of node, some with 95000MB of RAM, 191000MB of RAM and 771000MB of RAM. They all have 40 cores. What would be your --mem-per-cpu entry to get a proportional share of these nodes. Give your solution in MB or in GB.
 >>## Solution
 >>2375 MB  = 2.34 GB  
 >>4775 MB = 4.66 GB  
@@ -306,8 +342,36 @@ They give a 1h walltime, the job will be killed after 1 h (--time 1:00:00), you 
 Note that once the job are ran on a compute node all the job submit info is available under SLURM_* environment variable. For example, the amount of memory and the number of core are stored under SLURM_MEM_PER_NODE, and SLURM_CPUS_PER_TASK respectively.
 
 
+>## Exercise
+> What is strange with the configuration of these jobs?
+>
+>~~~
+>JOBID     USER      ACCOUNT     NAME         ST  TIME_LEFT NODES CPUS     GRES   MIN_MEM  NODELIST (REASON)
+>299xxxx some_user rrg-group mark_dup_spark   R    8:03:03     1   40     (null)   4000M  blg9123 (None)
+>299xxxx some_user rrg-group mark_dup_spark   R    8:21:12     1   40     (null)   4000M  blg7120 (None)
+>299xxxx some_user rrg-group mark_dup_spark   R    9:11:54     1   40     (null)   4000M  blg9235 (None)
+>299xxxx some_user rrg-group mark_dup_spark   R    9:28:34     1   40     (null)   4000M  blg8138 (None)
+>299xxxx some_user rrg-group mark_dup_spark   R    9:43:19     1   40     (null)   4000M  blg8239 (None)
+>299xxxx some_user rrg-group mark_dup_spark  PD   10:00:00     1   40     (null)   4000M  (Dependency)
+>299xxxx some_user rrg-group mark_dup_spark  PD   10:00:00     1   40     (null)   4000M  (Dependency)
+>299xxxx some_user rrg-group mark_dup_spark  PD   10:00:00     1   40     (null)   4000M  (Dependency)
+>299xxxx some_user rrg-group mark_dup_spark  PD   10:00:00     1   40     (null)   4000M  (Dependency)
+>299xxxx some_user rrg-group mark_dup_spark  PD   10:00:00     1   40     (null)   4000M  (Dependency)
+>299xxxx some_user rrg-group mark_dup_spark  PD   10:00:00     1   40     (null)   4000M  (Dependency)
+>299xxxx some_user rrg-group mark_dup_spark  PD   10:00:00     1   40     (null)   4000M  (Dependency)
+>299xxxx some_user rrg-group mark_dup_spark  PD   10:00:00     1   40     (null)   4000M  (Dependency)
+>299xxxx some_user rrg-group mark_dup_spark  PD   10:00:00     1   40     (null)   4000M  (Dependency)
+>299xxxx some_user rrg-group mark_dup_spark  PD   10:00:00     1   40     (null)   4000M  (Dependency)
+>~~~
+>{: .output}  
+>>## Solution
+>>All the jobs are using 40 cores but only requesting 4000M. That leaves a lot of unused RAM on every nodes. The value should be 95000MB, 191000MB or 771000MB. There is useless RAM sitting on the running nodes and if one of the mark_dup_spark job uses more than 4000M it will be killed by the scheduler (for no good reason). In a case like that, --mem=0 should be used instead of --mem-per-cpu, in this way, the first machine that is ready will be given to you and you will get all its memory, no matter how much memory it has.  
+> {: .solution}
+{: .challenge}
+
+
 >## Exercises
->Rewrite the trimm.sh script so the number of cores does not have to be written twice. Add the right amount of memory so the job will run on the 191000MB nodes.
+>Rewrite the trimm.sh script so the number of cores does not have to be written twice. Add the right amount of memory so the job will run on the 191000MB nodes. Hint, look for "ENVIRONMENT VARIABLES" at the end of the _man page_.
 >>## Solution
 >>
 >>~~~
@@ -316,20 +380,28 @@ Note that once the job are ran on a compute node all the job submit info is avai
 >>#SBATCH --mem-per-cpu  4775
 >>#SBATCH -A {{ rapid }}
 >>
->>INPUT_PAIR1=untrimmed_fastq/SRR2589044_1.fastq.gz
->>INPUT_PAIR2=untrimmed_fastq/SRR2589044_2.fastq.gz
+>>
+>>if [ $# -ne 2 ]; then
+>>   echo "$0 <input dir>  <input fastqs BASENAME>"
+>>   exit  1
+>>fi
+>>
+>>INPUT_DIR=$1
+>>BASENAME=$2
+>>
+>>INPUT_PAIR1=$INPUT_DIR/${BASENAME}_1.fastq.gz
+>>INPUT_PAIR2=$INPUT_DIR/${BASENAME}_2.fastq.gz
+>>
 >>OUTPUT_DIR=trimm_out
 >>
->>mkdir -p trimm_out
+>>mkdir -p $OUTPUT_DIR
 >>
->>sample=${OUTPUT_DIR}/$(basename $INPUT_PAIR1)
->>TRIM1=${sample%%.fastq.gz}.trim.fastq.gz
->>UNTRIM1=${sample%%.fastq.gz}un.trim.fastq.gz
 >>
->>sample=${OUTPUT_DIR}/$(basename $INPUT_PAIR2)
->>TRIM2=${sample%%.fastq.gz}.trim.fastq.gz
->>UNTRIM2=${sample%%.fastq.gz}un.trim.fastq.gz
+>>TRIM1=${TRIM_OUT}/${BASENAME}_1.trim.fastq.gz
+>>UNTRIM1=${TRIM_OUT}/${BASENAME}_1un.trim.fastq.gz
 >>
+>>TRIM2=${TRIM_OUT}/${BASENAME}_2.trim.fastq.gz
+>>UNTRIM2=${TRIM_OUT}/${BASENAME}_2un.trim.fastq.gz
 >>
 >>java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.36.jar
 >>      PE -threads $SLURM_CPUS_PER_TASK  $INPUT_PAIR1 $INPUT_PAIR2 \
@@ -348,8 +420,9 @@ Note that once the job are ran on a compute node all the job submit info is avai
 
 ### Back to Trimmomatic output
 
-We can confirm that we have our output files. The output files are also FASTQ files. It should be smaller than our
-input file, because we've removed reads. We can confirm this:
+Your Trimmomatic job must be done running now.
+We can confirm that we have our output files, they are also FASTQs. The trimmed files should be smaller than the
+inputs, because reads where removed. We can confirm this:
 
 
 ~~~
@@ -370,8 +443,8 @@ $ ls -hl  */SRR2589044*.fastq.gz
 
 
 We've just successfully run Trimmomatic on one of our FASTQ files!
-However, there is some bad news. Trimmomatic can only operate on
-one sample at a time and we have more than one sample.
+What ca we do with these now?
+
 
 
 

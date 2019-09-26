@@ -1,79 +1,99 @@
 ---
-title: "Automating a Variant Calling Workflow"
+title: "Optimizing a Variant Calling Workflow"
 teaching: 30
 exercises: 15
 questions:
 - "How can I make my workflow more efficient and less error-prone?"
 objectives:
-- "Write a shell script with multiple variables."
-- "Incorporate a `for` loop into a shell script."
+- "Understand the different file systems "
+- "Make sure we only keep need data"
 keypoints:
-- "We can combine multiple commands into a shell script to automate a workflow."
-- "Use `echo` statements within your scripts to get an automated progress update."
+-
+-
 ---
-# What is a shell script?
 
-You wrote a simple shell script in a [previous lesson](http://www.datacarpentry.org/shell-genomics/05-writing-scripts/) that we used to extract bad reads from our
-FASTQ files and put them into a new file. 
+# Compute Canada File Systems
 
-Here's the script you wrote:
+### Some Bioinformatics truth
+
+  - Many of the sequencing tools are IO intensive.
+  - What _runs well_ on your laptop will not necessary scale well on 1000 subjects especially if they are all analyzed at the same time.
+  - Use good strategy to clean none needed data.
+
+   To be able to run code with efficiency we need to have some information in mind about the HPC we run on.
+
+### The file systems of Compute Canada Super Computer   
+
+All the file system mounted on Béluga can bee seen by typing the `df -h` command. Here is a selection of what is available:
+
 
 ~~~
-grep -B1 -A2 NNNNNNNNNN *.fastq > scripted_bad_reads.txt
+Filesystem                                     Size  Used Avail Use% Mounted on
+rootfs                                          16G  2.0G   15G  13% /
+tmpfs                                           47G  4.0G   43G   9% /tmp
+pool/localscratch                              375G  256K  375G   1% /localscratch
+10.72.112.11@o2ib:10.72.112.12@o2ib:/lustre02  105T  8.0T   97T   8% /lustre02 # /home folders
+10.72.132.11@o2ib:10.72.132.12@o2ib:/lustre03  8.9P  6.8P  2.1P  77% /lustre03 # /project folder
+10.72.112.13@o2ib:10.72.112.14@o2ib:/lustre04  2.6P  1.1P  1.6P  42% /lustre04 # /scratch folder
+cvmfs2                                          44G   26G   19G  59% /cvmfs/soft.computecanada.ca # The software in "module"
+cvmfs2                                          44G   26G   19G  59% /cvmfs/restricted.computecanada.ca # The licenced software  
+cvmfs2                                          44G   26G   19G  59% /cvmfs/soft.mugqic Bioinformatic specific tools
+~~~
 
-echo "Script finished!"
+https://docs.computecanada.ca/wiki/Storage_and_file_management
+
+The luster file system have huge throughput, mush faster than any SSD, if a thousand jobs are opening a big file at the same time and load that file into memory, it will have no problem doing so. However, bioinfo tools are often opening and closing small file at a large rate and doing other operation that can put a lot of load on the luster file system. We often have whole cluster that are _jammed_ or rendered unusable for hours by bioinformatic master students not following basic IO strategy.    
+
+
+<object data="../img/good_practices.pdf" type="application/pdf" width="700px" height="700px">
+    <embed src="../img/good_practices.pdf">
+        <p>This browser does not support PDFs. Please download the PDF to view it: <a href="../img/good_practices.pdf">Download PDF</a>.</p>
+    </embed>
+</object>
+
+
+These recommendations have short term and long term effects. I will mention the long term one, but we will implement here one that will prevent you from being that student that crash one of the biggest super computer in the world.
+
+### Long term effects: use `/scratch`
+
+
+  The project space size is in between 1 to 10 TB. It should be use to store input (raw) data and to store your results at the end of a project. This space is backed up on all Compute Canada systems.
+
+  Use the scratch space. The scratch space is there to store temporary files and has a large default quota (20TB, can be p to 100TB). You can store there all the intermediate file that you need to run you code but that you do not have to keep in the long run. A cleaning is occurring for files older than 60 days. Once you are happy about what append in scratch keep a record of the test that where executed to get your data, move what is needed to your analysis to the project space and delete everything else.
+
+  In the long term, that will help you not reaching your quota limit on the project space, you will have documented what you are doing, will be sure that what is left is important to some degree and you will not have your PHD deleted by error!
+
+### Short term effects: use `/localscratch`
+
+Every Béluga node has a NVMe ssh mounted at `/localscratch`. This file system is not shared like `/scratch` and `/project`, is only accessible by its compute node. It lets you spread the io load of yours jobs. There is nothing there when you start your code, it will be emptied when you code is done running.
+
+It will let you open and close file with a low _jamming_ risk.
+
+
+
+### Run a Workflows that uses `/localscratch`
+
+
+In this exercise we will develop a complete variant calling workflow that will make good use of the `/localscratch`. But first how should we access it? Once a job starts to run on a compute node a directory is created in `/localscratch`. The full path of that directory in stored in the $SLURM_TMPDIR/. This variable does not exist on the login node, this can be sometime annoying, but Compute Canada might implement something to fix that.
+
+In an interactive session, we do have access to the variable:
+
+~~~
+$ salloc --time=0-2:0  --cpus-per-task=1 --mem=2300  --account=def-training-wa
+salloc: Pending job allocation 2978942
+salloc: job 2978942 queued and waiting for resources
+salloc: job 2978942 has been allocated resources
+salloc: Granted job allocation 2978942
+salloc: Waiting for resource configuration
+salloc: Nodes blg4810 are ready for job
+[poq@blg4810 ~]$]$ echo $SLURM_TMPDIR/
+/localscratch/poq.2978942.0/
 ~~~
 {: .bash}
 
-That script was only two lines long, but shell scripts can be much more complicated
-than that and can be used to perform a large number of operations on one or many 
-files. This saves you the effort of having to type each of those commands over for
-each of your data files and makes your work less error-prone and more reproducible. 
-For example, the variant calling workflow we just carried out had about eight steps
-where we had to type a command into our terminal. Most of these commands were pretty 
-long. If we wanted to do this for all six of our data files, that would be forty-eight
-steps. If we had 50 samples (a more realistic number), it would be 400 steps! You can
-see why we want to automate this.
+The path is `/localscratch/${USENAME}.${JOBID}/`.
 
-We've also used `for` loops in previous lessons to iterate one or two commands over multiple input files. 
-In these `for` loops, the filename was defined as a variable in the `for` statement, which enabled you to run the loop on multiple files. We will be using variable assignments like this in our new shell scripts.
-
-Here's the `for` loop you wrote for unzipping `.zip` files: 
-
-~~~
-$ for filename in *.zip
-> do
-> unzip $filename
-> done
-~~~
-{: .bash}
-
-And here's the one you wrote for running Trimmomatic on all of our `.fastq` sample files:
-
-~~~
-$ for infile in *_1.fastq.gz
-> do
->   base=$(basename ${infile} _1.fastq.gz)
->   trimmomatic PE ${infile} ${base}_2.fastq.gz \
->                ${base}_1.trim.fastq.gz ${base}_1un.trim.fastq.gz \
->                ${base}_2.trim.fastq.gz ${base}_2un.trim.fastq.gz \
->                SLIDINGWINDOW:4:20 MINLEN:25 ILLUMINACLIP:NexteraPE-PE.fa:2:40:15 
-> done
-~~~
-{: .bash}
-
-Notice that in this `for` loop, we used two variables, `infile`, which was defined in the `for` statement, and `base`, which was created from the filename during each iteration of the loop.
-
-> ## Creating Variables
-> Within the Bash shell you can create variables at any time (as we did
-> above, and during the 'for' loop lesson). Assign any name and the
-> value using the assignment operator: '='. You can check the current
-> definition of your variable by typing into your script: echo $variable_name.
-{: .callout}
-
-In this lesson, we'll use two shell scripts to automate the variant calling analysis: one for FastQC analysis (including creating our summary file), and a second for the remaining variant calling. To write a script to run our FastQC analysis, we'll take each of the commands we entered to run FastQC and process the output files and put them into a single file with a `.sh` extension. The `.sh` is not essential, but serves as a reminder to ourselves and to the computer that this is a shell script.
-
-# Analyzing Quality with FastQC
+<!--# Analyzing Quality with FastQC
 
 We will use the command `touch` to create a new file where we will write our shell script. We will create this script in a new
 directory called `scripts/`. Previously, we used
@@ -83,7 +103,7 @@ directory called `scripts/`. Previously, we used
 $ mkdir -p ~/dc_workshop/scripts
 $ cd ~/dc_workshop/scripts
 $ touch read_qc.sh
-$ ls 
+$ ls
 ~~~
 {: .bash}
 
@@ -100,9 +120,9 @@ $ nano read_qc.sh
 ~~~
 {: .bash}
 
-**Enter the following pieces of code into your shell script (not into your terminal prompt).**
+**Enter the following pieces of code into your shell script**
 
-Our first line will ensure that our script will exit if an error occurs, and is a good idea to include at the beginning of your scripts. The second line will move us into the `untrimmed_fastq/` directory when we run our script.
+Our first line will ensure that our script will exit if an error occurs, and is sometimes a good idea to include at the beginning of your scripts. The second line will move us into the `untrimmed_fastq/` directory when we run our script.
 
 ~~~
 set -e
@@ -111,7 +131,7 @@ cd ~/dc_workshop/data/untrimmed_fastq/
 {: .output}
 
 These next two lines will give us a status message to tell us that we are currently running FastQC, then will run FastQC
-on all of the files in our current directory with a `.fastq` extension. 
+on all of the files in our current directory with a `.fastq` extension.
 
 ~~~
 echo "Running FastQC ..."
@@ -119,9 +139,9 @@ fastqc *.fastq*
 ~~~
 {: .output}
 
-Our next line will create a new directory to hold our FastQC output files. Here we are using the `-p` option for `mkdir`. This 
+Our next line will create a new directory to hold our FastQC output files. Here we are using the `-p` option for `mkdir`. This
 option allows `mkdir` to create the new directory, even if one of the parent directories doesn't already exist. It also supresses
-errors if the directory already exists, without overwriting that directory. It is a good idea to use this option in your shell 
+errors if the directory already exists, without overwriting that directory. It is a good idea to use this option in your shell
 scripts to avoid running into errors if you don't have the directory structure you think you do.
 
 ~~~
@@ -130,7 +150,7 @@ mkdir -p ~/dc_workshop/results/fastqc_untrimmed_reads
 {: .output}
 
 Our next three lines first give us a status message to tell us we are saving the results from FastQC, then moves all of the files
-with a `.zip` or a `.html` extension to the directory we just created for storing our FastQC results. 
+with a `.zip` or a `.html` extension to the directory we just created for storing our FastQC results.
 
 ~~~
 echo "Saving FastQC results..."
@@ -158,7 +178,7 @@ for filename in *.zip
 ~~~
 {: .output}
 
-Next we concatenate all of our summary files into a single output file, with a status message to remind ourselves that this is 
+Next we concatenate all of our summary files into a single output file, with a status message to remind ourselves that this is
 what we're doing.
 
 ~~~
@@ -168,7 +188,7 @@ cat */summary.txt > ~/dc_workshop/docs/fastqc_summaries.txt
 {: .output}
 
 > ## Using `echo` statements
-> 
+>
 > We've used `echo` statements to add progress statements to our script. Our script will print these statements
 > as it is running and therefore we will be able to see how far our script has progressed.
 >
@@ -217,13 +237,13 @@ Approx 10% complete for SRR2584866.fastq
 Approx 15% complete for SRR2584866.fastq
 Approx 20% complete for SRR2584866.fastq
 Approx 25% complete for SRR2584866.fastq
-. 
-. 
-. 
+.
+.
+.
 ~~~
 {: .output}
 
-For each of your sample files, FastQC will ask if you want to replace the existing version with a new version. This is 
+For each of your sample files, FastQC will ask if you want to replace the existing version with a new version. This is
 because we have already run FastQC on this samples files and generated all of the outputs. We are now doing this again using
 our scripts. Go ahead and select `A` each time this message appears. It will appear once per sample file (six times total).
 
@@ -231,16 +251,18 @@ our scripts. Go ahead and select `A` each time this message appears. It will app
 replace SRR2584866_fastqc/Icons/fastqc_icon.png? [y]es, [n]o, [A]ll, [N]one, [r]ename:
 ~~~
 {: .output}
+-->
+
+# Automating our Variant Calling Workflow
+
+We have already wrote a script to run `fastqc` and trimmomatic in a previous chapters. We will now do so now up the the variant calling output. This will be all done while using the `/localscratch` file system.
 
 
-# Automating the Rest of our Variant Calling Workflow
 
-We can extend these principles to the entire variant calling workflow. To do this, we will take all of the individual commands that we wrote before, put them into a single file, add variables so that the script knows to iterate through our input files and write to the appropriate output files. This is very similar to what we did with our `read_qc.sh` script, but will be a bit more complex.
 
-Download the script from [here](https://raw.githubusercontent.com/datacarpentry/wrangling-genomics/gh-pages/files/run_variant_calling.sh). Download to `~/dc_workshop/scripts`.
 
 ~~~
-curl -O https://raw.githubusercontent.com/datacarpentry/wrangling-genomics/gh-pages/files/run_variant_calling.sh
+
 ~~~
 {: .bash}
 
@@ -287,16 +309,16 @@ for fq1 in ~/dc_workshop/data/trimmed_fastq_small/*_1.trim.sub.fastq
     sorted_bam=~/dc_workshop/results/bam/${base}.aligned.sorted.bam
     raw_bcf=~/dc_workshop/results/bcf/${base}_raw.bcf
     variants=~/dc_workshop/results/bcf/${base}_variants.vcf
-    final_variants=~/dc_workshop/results/vcf/${base}_final_variants.vcf 
+    final_variants=~/dc_workshop/results/vcf/${base}_final_variants.vcf
 
     bwa mem $genome $fq1 $fq2 > $sam
     samtools view -S -b $sam > $bam
     samtools sort -o $sorted_bam $bam
     samtools index $sorted_bam
     bcftools mpileup -O b -o $raw_bcf -f $genome $sorted_bam
-    bcftools call --ploidy 1 -m -v -o $variants $raw_bcf 
+    bcftools call --ploidy 1 -m -v -o $variants $raw_bcf
     vcfutils.pl varFilter $variants > $final_variants
-   
+
     done
 ~~~
 {: .output}
@@ -304,29 +326,29 @@ for fq1 in ~/dc_workshop/data/trimmed_fastq_small/*_1.trim.sub.fastq
 Now, we'll go through each line in the script before running it.
 
 First, notice that we change our working directory so that we can create new results subdirectories
-in the right location. 
+in the right location.
 
 ~~~
 cd ~/dc_workshop/results
 ~~~
 {: .output}
 
-Next we tell our script where to find the reference genome by assigning the `genome` variable to 
-the path to our reference genome: 
+Next we tell our script where to find the reference genome by assigning the `genome` variable to
+the path to our reference genome:
 
 ~~~
 genome=~/dc_workshop/data/ref_genome/ecoli_rel606.fasta
 ~~~
 {: .output}
 
-Next we index our reference genome for BWA: 
+Next we index our reference genome for BWA:
 
 ~~~
 bwa index $genome
 ~~~
 {: .output}
 
-And create the directory structure to store our results in: 
+And create the directory structure to store our results in:
 
 ~~~
 mkdir -p sam bam bcf vcf
@@ -334,7 +356,7 @@ mkdir -p sam bam bcf vcf
 {: .output}
 
 Then, we use a loop to run the variant calling workflow on each of our FASTQ files. The full list of commands
-within the loop will be executed once for each of the FASTQ files in the `data/trimmed_fastq/` directory. 
+within the loop will be executed once for each of the FASTQ files in the `data/trimmed_fastq/` directory.
 We will include a few `echo` statements to give us status updates on our progress.
 
 The first thing we do is assign the name of the FASTQ file we're currently working with to a variable called `fq1` and
@@ -348,7 +370,7 @@ for fq1 in ~/dc_workshop/data/trimmed_fastq_small/*_1.trim.sub.fastq
 {: .bash}
 
 We then extract the base name of the file (excluding the path and `.fastq` extension) and assign it
-to a new variable called `base`. 
+to a new variable called `base`.
 ~~~
     base=$(basename $fq1 _1.trim.sub.fastq)
     echo "base name is $base"
@@ -362,7 +384,7 @@ We can use the `base` variable to access both the `base_1.fastq` and `base_2.fas
     #input fastq files
     fq1=~/dc_workshop/data/trimmed_fastq_small/${base}_1.trim.sub.fastq
     fq2=~/dc_workshop/data/trimmed_fastq_small/${base}_2.trim.sub.fastq
-    
+
     # output files
     sam=~/dc_workshop/results/sam/${base}.aligned.sam
     bam=~/dc_workshop/results/bam/${base}.aligned.bam
@@ -393,7 +415,7 @@ And finally, the actual workflow steps:
 3) sort the BAM file:
 
 ~~~
-    samtools sort -o $sorted_bam $bam 
+    samtools sort -o $sorted_bam $bam
 ~~~
 {: .output}
 
@@ -407,14 +429,14 @@ And finally, the actual workflow steps:
 5) calculate the read coverage of positions in the genome:
 
 ~~~
-    bcftools mpileup -O b -o $raw_bcf -f $genome $sorted_bam 
+    bcftools mpileup -O b -o $raw_bcf -f $genome $sorted_bam
 ~~~
 {: .output}
 
 6) call SNPs with bcftools:
 
 ~~~
-    bcftools call --ploidy 1 -m -v -o $variants $raw_bcf 
+    bcftools call --ploidy 1 -m -v -o $variants $raw_bcf
 ~~~
 {: .output}
 
@@ -428,9 +450,9 @@ And finally, the actual workflow steps:
 
 
 > ## Exercise
-> It's a good idea to add comments to your code so that you (or a collaborator) can make sense of what you did later. 
+> It's a good idea to add comments to your code so that you (or a collaborator) can make sense of what you did later.
 > Look through your existing script. Discuss with a neighbor where you should add comments. Add comments (anything following
-> a `#` character will be interpreted as a comment, bash will not try to run these comments as code). 
+> a `#` character will be interpreted as a comment, bash will not try to run these comments as code).
 {: .challenge}
 
 
@@ -444,16 +466,16 @@ $ bash run_variant_calling.sh
 
 > ## Exercise
 >
-> The samples we just performed variant calling on are part of the long-term evolution experiment introduced at the 
+> The samples we just performed variant calling on are part of the long-term evolution experiment introduced at the
 > beginning of our variant calling workflow. From the metadata table, we know that SRR2589044 was from generation 5000,
 > SRR2584863 was from generation 15000, and SRR2584866 was from generation 50000. How did the number of mutations per sample change
 > over time? Examine the metadata table. What is one reason the number of mutations may have changed the way they did?
-> 
-> Hint: You can find a copy of the output files for the subsampled trimmed FASTQ file variant calling in the 
+>
+> Hint: You can find a copy of the output files for the subsampled trimmed FASTQ file variant calling in the
 > `~/.solutions/wrangling-solutions/variant_calling_auto/` directory.
-> 
+>
 >> ## Solution
->> 
+>>
 >> ~~~
 >> $ for infile in ~/dc_workshop/results/vcf/*_final_variants.vcf
 >> > do
@@ -462,20 +484,17 @@ $ bash run_variant_calling.sh
 >> > done
 >> ~~~
 >> {: .bash}
->> 
->> For SRR2589044 from generation 5000 there were 10 mutations, for SRR2584863 from generation 15000 there were 25 mutations, 
+>>
+>> For SRR2589044 from generation 5000 there were 10 mutations, for SRR2584863 from generation 15000 there were 25 mutations,
 >> and SRR2584866 from generation 766 mutations. In the last generation, a hypermutable phenotype had evolved, causing this
->> strain to have more mutations. 
+>> strain to have more mutations.
 > {: .solution}
 {: .challenge}
 
 
 > ## Bonus Exercise
-> 
-> If you have time after completing the previous exercise, use `run_variant_calling.sh` to run the variant calling pipeline 
-> on the full-sized trimmed FASTQ files. You should have a copy of these already in `~/dc_workshop/data/trimmed_fastq`, but if 
+>
+> If you have time after completing the previous exercise, use `run_variant_calling.sh` to run the variant calling pipeline
+> on the full-sized trimmed FASTQ files. You should have a copy of these already in `~/dc_workshop/data/trimmed_fastq`, but if
 > you don't, there is a copy in `~/.solutions/wrangling-solutions/trimmed_fastq`. Does the number of variants change per sample?
-{: .challenge} 
-
-
-
+{: .challenge}

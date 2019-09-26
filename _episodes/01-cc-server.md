@@ -15,13 +15,15 @@ keypoints:
 - "The scheduler send your script to a remote compute node where it is executed."
 ---
 
-{% capture rapid %}def-poq-tr{% endcapture %}
-{% capture reservation %}poq-reservation{% endcapture %}
+{% capture rapid %}def-training-wa{% endcapture %}
+{% capture reservation %}qc-wr_cpu{% endcapture %}
 
 
 # Connect to Béluga
 
 Béluga is the main Compute Québec Super Computer and is one of the Computer Canada Federation HPC sytem along with Cedar, Graham and Niagara. You can find more information about these systems and documentation about how to use them on the [Compute Canada Wiki page](https://docs.computecanada.ca/wiki/Compute_Canada_Documentation)
+
+Here is the [Béluga entry on the wiki](https://docs.computecanada.ca/wiki/Béluga/en).
 
 
 If you do not already have a Compute Canada account, you can use the username and password provided to you at the beginning of this lesson.  
@@ -51,28 +53,20 @@ You are now have a session on one of Béluga login node. It should look somethin
 ~~~
 {: .bash}
 
+If it is your first time on a Super Computer, let sink in the fact that you have one of the fastest computer in the world at your finger tips.
 
 
-<!-- # The File system
-
-
-There are more then one file systems mounted on Compute Canada Cluster.
-
-~~~
-/home
-/project
-/scratch
-/localscratch
-~~~
--->
 
 # Installed software
 
-You can see all software installed with the `module` command. To get a list of all software package, type `module avail`, type `module spider <string>` search if a module exist or to get information about a it.
+We used the `ls`, `nano`, etc. commands in the bash introduction, but now we want to access Bioinformatic tools. If you where to work on your own computer you would have to install these tools yourself, a process that can be tedious and  where the outcomes are far from certain!
+
+
+Luckily, many of the software used for bioinformatics are already installed on the Compute Canada servers. We call this installation the Compute Canada software stack. You can acces the list of installed software with the `module` command. To get a list of all software package, type `module avail`. type `module spider <string>` search if a module exist or to get information about a it.
 
 You can the load the module using `module load`.
 
-Lets do the procedure with a software that we will use later in the lesson, fastqc
+Lets do the procedure with a software that we will use later in the lesson: `fastqc`.
 
 
 ~~~
@@ -182,7 +176,7 @@ $ module spider fastqc/0.11.8
 ~~~
 {: .bash}  
 
-There is a lot of info here, but one is stands out:  "You will need to load all module(s) on any one of the lines below before the "fastqc/0.11.8" module is available to load."
+There is a lot of info here, but one stands out:  "You will need to load all module(s) on any one of the lines below before the "fastqc/0.11.8" module is available to load."
 
 We are lucky here since nixpkgs/16.09 is loaded by default on and CC system, we ca see that by typing
 
@@ -251,6 +245,25 @@ Will will see how that work in the next section.
 
 ![HPC](../img/detailed_super_computer.png)
 
+# The shared File system
+
+
+There are more then one file systems mounted on Compute Canada Cluster.
+
+~~~
+/home
+/project
+/scratch
+~~~
+{: .output}
+
+The are available from all the compute node at the same time, note that it can be hazardous to write in the same file form many compute node while reading should not be a problem.
+
+### Some File system are not shared
+
+Lets type the `df` (**d**isk **f**ree) command and see all the mounted file systems.
+
+There are many _tmpfs_, one per user, `/tmp` is also a _tmpfs_ while `/localscratch` is a standard, superfast NVMe SSD disk. 
 
 
 # Run you first script on a Super computer

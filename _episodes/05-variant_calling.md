@@ -14,7 +14,7 @@ keypoints:
 - "There are many different file formats for storing genomics data. It's important to understand what type of information is contained in each file, and how it was derived."
 ---
 
-{% capture rapid %}def-poq-tr{% endcapture %}
+{% capture rapid %}def-training-wa{% endcapture %}
 
 You are not supposed to execute heavy or long running jobs on the login nodes, but is can be useful to run interactive sessions.     
 
@@ -48,6 +48,12 @@ $ gunzip data/ref_genome/ecoli_rel606.fasta.gz
 ~~~
 {: .bash}
 
+>## The internet form the compute nodes
+> Note that compute node do not have access direct acess to the internet, on Compute Canada systems.   
+{: .callout}
+
+
+
 > ## Exercise
 >
 > We saved this file as `data/ref_genome/ecoli_rel606.fasta.gz` and then decompressed it.
@@ -75,6 +81,13 @@ $ mv sub/ ~/dc_workshop/data/trimmed_fastq_small
 ~~~
 {: .bash}
 
+If you have problem with the command, can also copy the whole thing from here"
+
+~~~
+cp /lustre03/project/6019928/data_wrangling_SWC/dc_workshop/data .
+~~~
+{: .bash}
+
 You will also need to create directories for the results that will be generated as part of this workflow. We can do this in a single
 line of code, because `mkdir` can accept multiple new directory
 names as input.
@@ -87,15 +100,15 @@ $ mkdir -p results/sam results/bam results/bcf results/vcf
 
 ### Interactive session
 
-We do not what the login nodes to be use for computing, but it is often useful to have an interactive session to test code and to analyze some of our data. That can help us undersant how much cpu or ram steps in our code will need. The `salloc` command will open an interactive session for you on a compute node. Here his how it can be done:
+We do not want the login nodes to be use for computing, but it is often useful to have an interactive session to test code and to analyze some of our data. This help us understand how much cpu or ram steps in our code will need, and also to simpely remove bugs and typos form our scripts. The `salloc` command will open an interactive session for you on a compute node. Here his how it can be done:
 
 
 ~~~
-$ salloc -A def-poq-tr --mem-per-cpu 2375
+$ salloc -A def-training-wa --mem-per-cpu 2375
 ~~~
 {: .bash}
 
-
+We are now on a compute node, ready to run code. If this does not work, please use the pink post-it.
 
 
 ### Index the reference genome
@@ -124,8 +137,7 @@ While the index is created, you will see output that looks something like this:
 ### Align reads to reference genome
 
 The alignment process consists of choosing an appropriate reference genome to map our reads against and then deciding on an
-aligner. We will use the BWA-MEM algorithm, which is the latest and is generally recommended for high-quality queries as it
-is faster and more accurate.
+aligner. We will use the BWA-MEM algorithm, which is fast and accurate. (Note that a big part of the Bioinformatiocian job is to know which tools can be use in what situation...)
 
 An example of what a `bwa` command looks like is below. This command will not run, as we do not have the files `ref_genome.fa`, `input_file_R1.fastq`, or `input_file_R2.fastq`.
 
@@ -170,7 +182,7 @@ is a tab-delimited text file that contains information for each individual read 
 have time to go into detail about the features of the SAM format, the paper by
 [Heng Li et al.](http://bioinformatics.oxfordjournals.org/content/25/16/2078.full) provides a lot more detail on the specification.
 
-**The compressed binary version of SAM is called a BAM file.** We use this version to reduce size and to allow for *indexing*, which enables efficient random access of the data contained within the file. Note that the CRAM format, an even more compress version of the SAM format is gaining traction and is slowly becoming a new standard. But we will not be using it here.  
+**The compressed binary version of SAM is called a BAM file.** We use this version to reduce size and to allow for *indexing*, which enables efficient random access of the data contained within the file. Note that the **CRAM** format, an even more compress version of the SAM format using a reference is gaining traction and is steadily becoming a new standard. But we will not be using it here.  
 
 The file begins with a **header**, which is optional. The header is used to describe the source of data, reference sequence, method of
 alignment, etc., this will change depending on the aligner being used. Following the header is the **alignment section**. Each line
@@ -472,6 +484,8 @@ positions where the called base differs from the reference are shown. You can us
 to scroll or type `?` for a help menu. To navigate to a specific position, type `g`. A dialogue box will appear. In
 this box, type the name of the "chromosome", followed by a colon and the position of the variant you would like to view
 (e.g. for this sample, type `NC_012967.1:50` to view the 50th base. Type `Ctrl^C` or `q` to exit `tview`.
+
+More details on the [mpileup format](https://en.wikipedia.org/wiki/Pileup_format) use here is also found on wikipedia.
 
 > ## Exercise
 >
