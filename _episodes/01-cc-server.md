@@ -305,7 +305,7 @@ chmod 755
 >>  1
 >> ~~~
 >>$ ./hostname.sh
->>Hello from beluga?.int.ets1.calculquebec.ca
+>>Hello from beluga1.int.ets1.calculquebec.ca
 >>sleeping 5 seconds
 >>~~~
 >>2

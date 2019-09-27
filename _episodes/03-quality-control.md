@@ -65,16 +65,14 @@ curl -O ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR258/006/SRR2584866/SRR2584866_2.fa
 
 > ## Faster option
 >
-> If your workshop is short on time or the venue's internet connection is weak or unstable, learners can
-> avoid needing to download the data and instead use the data files provided in the `.backup/` directory.
+> The internet connection might not be that good, you can also copy the data from here:
 >
 > ~~~
-> cp /lustre03/project/6019928/data_wrangling_SWC/untrimmed_fastq/*fastq.gz .
+> mkdir -p ~/dc_workshop/data/untrimmed_fastq/
+> cd ~/dc_workshop/data/untrimmed_fastq
+> cp -v /lustre03/project/6019928/data_wrangling_SWC/untrimmed_fastq/*fastq.gz .
 > ~~~
 > {: .bash}
->
-> This command creates a copy of each of the files in the `.backup/untrimmed_fastq/` directory that end in `fastq.gz` and
-> places the copies in the current working directory (signified by `.`).
 {: .callout}
 
 <!--For reasons that will be made more obvious later, lets create a file that lists all the fastq files we have just download
@@ -312,12 +310,25 @@ $ fastqc  -v
 ~~~
 {: .bash}
 
+> ## Exercise
+>
+>  Type `module avail` to get a feel of how many software are installed.
+> How many bioinfo tools are installed?
+>> ## Solution
+>>  There is a lot, a lot! About one in three installed software in the Compute Canada Software stack are related to Bioinformatic.
+>>
+> {: .solution}
+{: .challenge}
+
+
+
+
 No we can use `fastqc` and run it on the `SRR2584863` sample pair.
 
 ~~~
 $ cd ~/dc_workshop
 $ mkdir -p results/fastqc_untrimed
-$ fastqc -o fastqc_untrimed results/untrimmed_fastq/SRR2584863_?.fastq
+$ fastqc -o results/fastqc_untrimed data/untrimmed_fastq/SRR2584863_?.fastq
 ~~~
 {: .bash}
 
@@ -408,16 +419,20 @@ let's transfer them to our local computers (i.e. your laptop).
 To transfer a file from a remote server to our own machines, we will
 use `scp`, which we learned yesterday in the Shell Genomics lesson.
 
+>## Open a new bash terminal on your machine.
+>Do not connect to Béluga with it.
+{: .callout}
+
 First we will make a new directory on our computer to store the HTML files
-we're transferring. Let's put it on our desktop for now. Open a new
-tab in your terminal program and type:
+we're transferring. Let's put it in your $HOME folder. In a new
+terminal (not on beluga) type:
 
 ~~~
 $ mkdir -p ~/cq-genomics/fastqc_html
 ~~~
 {: .bash}
 
-Now we can transfer our HTML files to our local computer using `scp`.
+Now we can transfer our HTML files to our local computer using `scp`. Always from that new terminal, type:
 
 ~~~
 $ scp <USERNAME>@{{ cc-system-lc }}.computecanada.ca:~/dc_workshop/results/fastqc_untrimmed/*.html ~/cq-genomics/fastqc_html
@@ -446,7 +461,7 @@ Now we can go to our new directory and open the HTML files.
 
 ~~~
 $ cd ~/cq-genomics/fastqc_html/
-$ open *.html # or firefox *.html or google-chrome *.html, etc
+$ open *.html # or firefox *.html or google-chrome *.html, etc. You might also be able to click on it.
 ~~~
 {: .bash}
 
@@ -524,11 +539,22 @@ expects to get only one zip file as input. We could go through and
 unzip each file one at a time, but this is very time consuming and
 error-prone. Someday you may have 500 files to unzip!
 
-Anyway, we do not want to use the login node to do any heavy computation. Lets now use what we have learn in the previous section and ask the compute node to do our unzipping. At the same time we will complete the `fastqc` processing of the previous jobs. Lets copy the following in `sample_workflow.sh`  
+Anyway, we do not want to use the login node to do any heavy computation. Lets now use what we have learn in the previous section and ask the compute node to do our unzipping. At the same time we will complete the `fastqc` processing of the previous jobs. Lets copy the following in `sample_workflow.sh`. there is a lot to unpack here!
 
+Get to the right folder and open the new file.
+~~~
+$ cd ~/dc_workshop
+$ nano sample_workflow.sh
+~~~
+{: .bash}
 
+Here is what you need to copy and paste in that file.
 ~~~
 #/bin/bash
+
+input_sample=$1
+output_dir=$2
+
 
 if [ $# -ne 2 ]; then
   echo "$0 <input fastq> <output_dir>"
@@ -536,34 +562,35 @@ if [ $# -ne 2 ]; then
   exit  1
 fi
 
-input_sample=$1
-output_dir=$2
 
+# Some advance string manipulation
 input_sample_name=$(basename "$input_sample")
 input_sample_dir=$(dirname "$input_sample")
 
-input_name=${input_sample_name%%.gz}
-input_name=${input_name%%.fastq}
-input_zip=${input_name%%.fastq}_fastqc.zip
+input_name=${input_sample_name%%.gz} # remove .gz at the end of a string
+input_name=${input_name%%.fastq} # remove .fastq at the end of a string
+output_zip=${input_name}_fastqc.zip
 
 module load fastqc
 
-echo Starting the processing of $input_sample
+echo Starting the processing on $input_sample
 
 mkdir -p $output_dir
 
-if [ -f "$output_dir/$input_zip" ]; then
+# check if output already exist
+if [ -f "$output_dir/$output_zip" ]; then
   echo fastqc already ran on $input_sample
 else
   echo running "fastqc -o $output_dir $input_sample"
   fastqc -o $output_dir $input_sample
 fi
 
+
+# unzip in the right directory
 cd $output_dir
-
 echo unzip start
-
-unzip -of $input_zip
+# overwrite if file exist without asking questions
+unzip -of $output_zip
 
 echo $input_sample done
 ~~~

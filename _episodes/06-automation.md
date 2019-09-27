@@ -17,8 +17,8 @@ keypoints:
 ### Some Bioinformatics truth
 
   - Many of the sequencing tools are IO intensive.
-  - What _runs well_ on your laptop will not necessary scale well on 1000 subjects especially if they are all analyzed at the same time.
-  - Use good strategy to clean none needed data.
+  - What _runs well_ on your laptop or one sample will not necessary scale to a 1000 subjects on a super computer.
+  - There is a lot of data, a lot of it your will never be needed.
 
    To be able to run code with efficiency we need to have some information in mind about the HPC we run on.
 
@@ -42,7 +42,7 @@ cvmfs2                                          44G   26G   19G  59% /cvmfs/soft
 
 https://docs.computecanada.ca/wiki/Storage_and_file_management
 
-The luster file system have huge throughput, mush faster than any SSD, if a thousand jobs are opening a big file at the same time and load that file into memory, it will have no problem doing so. However, bioinfo tools are often opening and closing small file at a large rate and doing other operation that can put a lot of load on the luster file system. We often have whole cluster that are _jammed_ or rendered unusable for hours by bioinformatic master students not following basic IO strategy.    
+The luster file system have huge throughput, mush faster than any SSD. They archive that speed by having multiple copy of the data distributed over many physical hard drive. However, bioinfo tools are often opening and closing file at a fast rate and doing other operation that can put a lot of load on the luster file system. We often have whole cluster that are _jammed_ or rendered unusable for hours by bioinformatic ~~master students~~ researcher not following basic IO strategy.    
 
 
 <object data="../img/good_practices.pdf" type="application/pdf" width="700px" height="700px">
@@ -92,6 +92,10 @@ salloc: Nodes blg4810 are ready for job
 {: .bash}
 
 The path is `/localscratch/${USENAME}.${JOBID}/`.
+
+
+
+
 
 <!--# Analyzing Quality with FastQC
 
@@ -260,12 +264,112 @@ We have already wrote a script to run `fastqc` and trimmomatic in a previous cha
 
 
 
-
 ~~~
+#!/bin/bash
+#SBATCH --cpu-per-task 4
+#SBATCH --mem-per-cpu  4775
+#SBATCH -A def-poq-tr
+
+
+if [ $# -ne 3 ]; then
+   echo "$0 <input dir> <output_dir> <input fastqs BASENAME>"
+   exit  1
+fi
+
+INPUT_DIR=$1
+OUTPUT_DIR=$2
+BASENAME=$3
+
+set -e
+
+# Know where you are at the beginning of the run
+START_DIR=$PWD
+
+INPUT_PAIR1=$INPUT_DIR/${BASENAME}_1.fastq.gz
+INPUT_PAIR2=$INPUT_DIR/${BASENAME}_2.fastq.gz
+
+# With "set -e" activated this will wake the code exit if one of the pair is not present
+ls "$INPUT_PAIR1" "$INPUT_PAIR2"
+
+echo $INPUT_PAIR1 and $INPUT_PAIR2 exist
+echo Starting process
+
+
+# Get the input in the tmp dir and move there too
+# Sometime you do not need to move the inputs to the tmpdir.
+mkdir -p $SLURM_TMPDIR/$INPUT_DIR
+cp $INPUT_PAIR1 $INPUT_PAIR2 $SLURM_TMPDIR/$INPUT_DIR
+cd  $SLURM_TMPDIR
+
+TRIM_OUT=trimm_out
+
+mkdir -p ${TRIM_OUT}
+
+TRIM1=${TRIM_OUT}/${BASENAME}_1.trim.fastq.gz
+UNTRIM1=${TRIM_OUT}/${BASENAME}_1un.trim.fastq.gz
+
+TRIM2=${TRIM_OUT}/${BASENAME}_2.trim.fastq.gz
+UNTRIM2=${TRIM_OUT}/${BASENAME}_2un.trim.fastq.gz
+
+
+module load trimmomatic
+
+if [ ! -f $START_DIR/$OUTPUT_DIR/$TRIM1 ] ; then
+  echo $START_DIR/$OUTPUT_DIR/$TRIM1
+  java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.36.jar \
+   PE -threads $SLURM_CPUS_PER_TASK  $INPUT_PAIR1 $INPUT_PAIR2 \
+   $TRIM1 $UNTRIM1 \
+   $TRIM2 $UNTRIM2 \
+   SLIDINGWINDOW:4:20 MINLEN:25 \
+   ILLUMINACLIP:$EBROOTTRIMMOMATIC/adapters/NexteraPE-PE.fa:2:40:15
+else
+  echo not recomputing trim for $BASENAME
+  cp $START_DIR/$OUTPUT_DIR/{$TRIM1,$TRIM2,$UNTRIM2,$UNTRIM1} ${TRIM_OUT}
+
+fi
+
+
+
+genome=/cvmfs/ref.mugqic/genomes/species/Escherichia_coli_str_k_12_substr_dh10b.ASM1942v1/genome/bwa_index/Escherichia_coli_str_k_12_substr_dh10b.ASM1942v1.fa
+
+
+# The outputs paths
+sam=sam/${BASENAME}.aligned.sam
+bam=bam/${BASENAME}.aligned.bam
+sorted_bam=bam/${BASENAME}.aligned.sorted.bam
+raw_bcf=bcf/${BASENAME}_raw.bcf
+variants=bcf/${BASENAME}_variants.vcf
+final_variants=vcf/${BASENAME}_final_variants.vcf
+
+mkdir -p vcf bcf bam sam
+
+module load bwa
+bwa mem -t $SLURM_CPUS_PER_TASK  $genome $TRIM1 $TRIM2 > $sam
+module load samtools
+samtools view --threads $SLURM_CPUS_PER_TASK  -S -b $sam > $bam
+samtools sort --threads $SLURM_CPUS_PER_TASK -o $sorted_bam $bam
+samtools index -@ $SLURM_CPUS_PER_TASK $sorted_bam
+
+
+module load bcftools
+genome=/cvmfs/ref.mugqic/genomes/species/Escherichia_coli_str_k_12_substr_dh10b.ASM1942v1/genome/Escherichia_coli_str_k_12_substr_dh10b.ASM1942v1.fa
+bcftools mpileup -O b -o $raw_bcf -f $genome $sorted_bam
+bcftools call --threads $SLURM_CPUS_PER_TASK --ploidy 1 -m -v -o $variants $raw_bcf
+vcfutils.pl varFilter $variants > $final_variants
+
+
+# We only keep the trimmed fastq and bam. We can always recompute the
+# the samcfiles.
+mkdir -p  $START_DIR/$OUTPUT_DIR
+
+echo syching to $START_DIR/$OUTPUT_DIR
+rsync -rltv vcf bcf trimm_out bam $START_DIR/$OUTPUT_DIR
+
 
 ~~~
 {: .bash}
 
+<!--
 Our variant calling workflow has the following steps:
 
 1. Index the reference genome for use by bwa and samtools.
@@ -498,3 +602,4 @@ $ bash run_variant_calling.sh
 > on the full-sized trimmed FASTQ files. You should have a copy of these already in `~/dc_workshop/data/trimmed_fastq`, but if
 > you don't, there is a copy in `~/.solutions/wrangling-solutions/trimmed_fastq`. Does the number of variants change per sample?
 {: .challenge}
+-->

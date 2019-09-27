@@ -48,8 +48,13 @@ $ gunzip data/ref_genome/ecoli_rel606.fasta.gz
 ~~~
 {: .bash}
 
+
 >## The internet form the compute nodes
-> Note that compute node do not have access direct acess to the internet, on Compute Canada systems.   
+> Note that compute node do not have access direct acess to the internet, on Compute >Canada systems. And for now if the connection is too slow the file is here:
+>~~~
+>$ cp -v  >/home/poq/projects/def-poq-ab/data_wrangling_SWC/dc_workshop/data/ref_genome/ecoli_rel606.fasta data/ref_genome/ecoli_rel606.fasta.gz   
+>~~~
+>{: .bash}
 {: .callout}
 
 
@@ -84,7 +89,7 @@ $ mv sub/ ~/dc_workshop/data/trimmed_fastq_small
 If you have problem with the command, can also copy the whole thing from here"
 
 ~~~
-cp /lustre03/project/6019928/data_wrangling_SWC/dc_workshop/data .
+cp -rv /lustre03/project/6019928/data_wrangling_SWC/dc_workshop/data/trimmed_fastq_small ~/dc_workshop/data/
 ~~~
 {: .bash}
 
@@ -115,6 +120,7 @@ We are now on a compute node, ready to run code. If this does not work, please u
 Our first step is to index the reference genome for use by BWA. Indexing allows the aligner to quickly find potential alignment sites for query sequences in a genome, which saves time during alignment. Indexing the reference only has to be run once. The only reason you would want to create a new index is if you are working with a different reference genome or you are using a different tool for alignment.
 
 ~~~
+$ module load bwa
 $ bwa index data/ref_genome/ecoli_rel606.fasta
 ~~~
 {: .bash}
@@ -198,6 +204,7 @@ displayed below with the different fields highlighted.
 We will convert the SAM file to BAM format using the `samtools` program with the `view` command and tell this command that the input is in SAM format (`-S`) and to output BAM format (`-b`):
 
 ~~~
+$ module load samtools
 $ samtools view -S -b results/sam/SRR2584866.aligned.sam > results/bam/SRR2584866.aligned.bam
 ~~~
 {: .bash}
@@ -266,6 +273,7 @@ variants.
 Do the first pass on variant calling by counting read coverage with [bcftools](https://samtools.github.io/bcftools/bcftools.html). We will use the command `mpileup`. The flag `-O b` tells samtools to generate a bcf format output file, `-o` specifies where to write the output file, and `-f` flags the path to the reference genome:
 
 ~~~
+$ module load bcftools
 $ bcftools mpileup -O b -o results/bcf/SRR2584866_raw.bcf \
 -f data/ref_genome/ecoli_rel606.fasta results/bam/SRR2584866.aligned.sorted.bam
 ~~~

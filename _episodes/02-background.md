@@ -40,12 +40,12 @@ We are going to use a long-term sequencing dataset from a population of *Escheri
 
 We will be working with three sample events from the **Ara-3** strain of this experiment, one from 5,000 generations, one from 15,000 generations, and one from 50,000 generations. The population changed substantially during the course of the experiment, and we will be exploring how (the evolution of a **Cit+** mutant and **hypermutability**) with our variant calling workflow. The metadata file associated with this lesson can be [downloaded directly here](https://raw.githubusercontent.com/datacarpentry/wrangling-genomics/gh-pages/files/Ecoli_metadata_composite.csv) or [viewed in Github](https://github.com/datacarpentry/wrangling-genomics/blob/gh-pages/files/Ecoli_metadata_composite.csv). If you would like to know details of how the file was created, you can look at [some notes and sources here](https://github.com/datacarpentry/wrangling-genomics/blob/gh-pages/files/Ecoli_metadata_composite_README.md).
 
-To download the metadata in a terminal, use `wget`:
-
+Get the data from the shares file system:
 ~~~
-wget https://raw.githubusercontent.com/datacarpentry/wrangling-genomics/gh-pages/files/Ecoli_metadata_composite.csv
+cp /lustre03/project/6019928/data_wrangling_SWC/Ecoli_metadata_composite.csv .
 ~~~
 {: .bash}
+
 
 
 This metadata describes information on the *Ara-3* clones and the columns represent:
@@ -66,6 +66,14 @@ This metadata describes information on the *Ara-3* clones and the columns repres
 | cit              | citrate-using mutant status		|
 
 
+
+>## Some extra bash command
+> Yesterday we missed at least one bash command that can come handy: `grep`
+> It is very powerful, and has some basic application. Il will pars a file and
+> print all the lines that contain a specify chain of character.  
+{: .callout}
+
+
 > ## Challenge
 >
 > Based on the metadata, can you answer the following questions?
@@ -75,12 +83,13 @@ This metadata describes information on the *Ara-3* clones and the columns repres
 > 3. How many citrate+ mutants have been recorded in **Ara-3**?
 > 4. How many hypermutable mutants have been recorded in **Ara-3**?
 >
+> Use the bash skill you learned yesterday to get these answers
 > > ## Solution
 >>
-> > 1. 25 different generations
-> > 2. 62 rows, 12 columns
-> > 3. 10 citrate+ mutants
-> > 4. 6 hypermutable mutants
+> > 1. 25 different generations ( `tail -n+2 Ecoli_metadata_composite.csv |  cut -d , -f2 | sort -n  | uniq  | wc -l`)
+> > 2. 62 rows, 12 columns ( `wc -l Ecoli_metadata_composite.csv` minus the header line)
+> > 3. 10 citrate+ mutants ( cat  Ecoli_metadata_composite.csv  | cut -d , -f 12  | sort  | grep plus | wc -l)
+> > 4. 6 hypermutable mutants (cat  Ecoli_metadata_composite.csv  | cut -d , -f 6  | sort  | grep plus | wc -l)
 > {: .solution}
 {: .challenge}
 
