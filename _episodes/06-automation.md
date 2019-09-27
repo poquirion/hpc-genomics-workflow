@@ -8,8 +8,7 @@ objectives:
 - "Understand the different file systems "
 - "Make sure we only keep need data"
 keypoints:
--
--
+- Bioinformatic tools are IO intensive, be aware of that.
 ---
 
 # Compute Canada File Systems
@@ -67,7 +66,10 @@ These recommendations have short term and long term effects. I will mention the 
 
 Every Béluga node has a NVMe ssh mounted at `/localscratch`. This file system is not shared like `/scratch` and `/project`, is only accessible by its compute node. It lets you spread the io load of yours jobs. There is nothing there when you start your code, it will be emptied when you code is done running.
 
-It will let you open and close file with a low _jamming_ risk.
+The typical procedure is:
+* Move the input data to the `/localscratch`.
+* Use it as the folder for your output (working directory).
+* Move the data back to the shared file system.
 
 
 
